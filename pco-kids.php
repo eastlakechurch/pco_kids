@@ -8,6 +8,10 @@
 
 defined('ABSPATH') || exit;
 require_once plugin_dir_path(__FILE__) . 'admin/pco-dashboard.php';
+require_once plugin_dir_path(__FILE__) . 'includes/pco-kids-api.php';
+
+/* Admin page */
+add_action('admin_menu', ['ELCIS\\Dashboard_Page', 'register']);
 
 /* Autoload simple classes */
 spl_autoload_register(function ($c) {
@@ -21,13 +25,18 @@ spl_autoload_register(function ($c) {
 
 /* Settings + capability */
 register_activation_hook(__FILE__, function () {
-    $role = get_role('kids_leader');
-    if (!$role) {
+    $kids_leader = get_role('kids_leader');
+    if (!$kids_leader) {
         add_role('kids_leader', 'Kids Leader', ['read' => true]);
-        $role = get_role('kids_leader');
+        $kids_leader = get_role('kids_leader');
     }
-    if ($role) {
-        $role->add_cap('manage_checkins_sms');
+    if ($kids_leader) {
+        $kids_leader->add_cap('manage_checkins_sms');
+    }
+
+    $admin = get_role('administrator');
+    if ($admin) {
+        $admin->add_cap('manage_checkins_sms');
     }
 });
 add_action('admin_init', function () {
@@ -36,8 +45,6 @@ add_action('admin_init', function () {
     register_setting('elcis_settings', 'elcis_clearstream_key');
 });
 
-/* Admin page */
-add_action('admin_menu', ['ELCIS\\Dashboard_Page', 'register']);
 
 /* REST routes */
 add_action('rest_api_init', function () {

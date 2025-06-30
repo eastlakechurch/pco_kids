@@ -1,3 +1,4 @@
+<?php
 namespace ELCIS;
 use WP_REST_Server;
 
