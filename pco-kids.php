@@ -14,12 +14,13 @@ require_once plugin_dir_path(__FILE__) . 'includes/pco-kids-api.php';
 add_action('admin_menu', ['ELCIS\\Dashboard_Page', 'register']);
 
 /* Autoload simple classes */
-spl_autoload_register(function ($c) {
-    if (strpos($c, 'ELCIS_') === 0) {
-        require_once plugin_dir_path(__FILE__) . str_replace(
-            ['ELCIS_', '\\'], ['', '/'],
-            strtolower($c)
-        ) . '.php';
+spl_autoload_register(function ($class) {
+    if (strpos($class, 'ELCIS\\') === 0) {
+        $relative_class = substr($class, strlen('ELCIS\\'));
+        $file = plugin_dir_path(__FILE__) . 'includes/' . strtolower(str_replace('\\', '-', $relative_class)) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+        }
     }
 });
 
