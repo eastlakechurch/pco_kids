@@ -20,7 +20,14 @@ spl_autoload_register(function ($c) {
 
 /* Settings + capability */
 register_activation_hook(__FILE__, function () {
-    add_role_cap('kids_leader', 'manage_checkins_sms');
+    $role = get_role('kids_leader');
+    if (!$role) {
+        add_role('kids_leader', 'Kids Leader', ['read' => true]);
+        $role = get_role('kids_leader');
+    }
+    if ($role) {
+        $role->add_cap('manage_checkins_sms');
+    }
 });
 add_action('admin_init', function () {
     register_setting('elcis_settings', 'elcis_pco_app_id');
