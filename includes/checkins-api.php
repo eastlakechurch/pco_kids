@@ -12,35 +12,16 @@ class Checkins_API {
             'permission_callback' => [$this, 'can_use'],
             'callback' => [$this, 'get_open_checkins'],
         ]);
-        register_rest_route($this->base, '/checkout', [
-            'methods'  => 'POST',
-            'permission_callback' => '__return_true',
-            'callback' => [$this, 'handle_checkout'],
-            'args'     => [
-                'checkin_id' => [
-                    'required' => true,
-                    'type'     => 'string',
-                ],
-            ],
-        ]);
     }
-    public function can_use() {
-        return is_user_logged_in() &&
-               isset($_SERVER['HTTP_X_WP_NONCE']) &&
-               wp_verify_nonce($_SERVER['HTTP_X_WP_NONCE'], 'wp_rest');
-    }
+    public function can_use() { return current_user_can('manage_checkins_sms'); }
 
     public function get_open_checkins() {
         $cached = get_transient('elcis_open_checkins');
         if ($cached) return $cached;
 
-        elcis_refresh_pco_token_if_needed();
-        $access_token = get_option('elcis_pco_access_token');
+        $creds = $this->pco_creds();
         $args  = [
-          'headers' => [
-            'Authorization' => 'Bearer ' . $access_token,
-            'Content-Type'  => 'application/json',
-          ],
+          'headers' => ['Authorization' => 'Basic ' . base64_encode("{$creds['id']}:{$creds['secret']}")],
           'timeout' => 10,
         ];
         $url = 'https://api.planningcenteronline.com/check-ins/v2/check_ins'
@@ -113,7 +94,6 @@ class Checkins_API {
             }
 
             $checkins[] = [
-                'id'         => $item['id'],
                 'name'       => $item['attributes']['first_name'] . ' ' . $item['attributes']['last_name'],
                 'since'      => date('H:i:s', $created_at),
                 'created_at' => $item['attributes']['created_at'],
@@ -130,57 +110,10 @@ class Checkins_API {
         set_transient('elcis_open_checkins', $checkins, 20); // 20-second cache
         return $checkins;
     }
-
-    public function handle_checkout($request) {
-        $checkin_id = sanitize_text_field($request->get_param('checkin_id'));
-        error_log("▶️ Received checkout request for ID: $checkin_id");
-
-        $access_token = get_option('elcis_pco_access_token');
-        if (!$access_token) {
-            error_log("❌ Missing access token");
-            return new \WP_Error('missing_token', 'Access token not available', ['status' => 401]);
-        }
-
-        $url = "https://api.planningcenteronline.com/check-ins/v2/check_ins/{$checkin_id}";
-        $now = gmdate("Y-m-d\TH:i:s\Z");
-
-        $body = json_encode([
-            'data' => [
-                'type'       => 'CheckIn',
-                'id'         => $checkin_id,
-                'attributes' => [
-                    'checked_out_at' => $now,
-                ],
-            ],
-        ]);
-
-        error_log("📤 Sending PATCH to $url with body: $body");
-
-        $response = wp_remote_request($url, [
-            'method'  => 'PATCH',
-            'headers' => [
-                'Authorization' => "Bearer {$access_token}",
-                'Content-Type'  => 'application/json',
-            ],
-            'body'    => $body,
-        ]);
-
-        if (is_wp_error($response)) {
-            error_log("❌ WP Error: " . $response->get_error_message());
-            return new \WP_Error('api_error', $response->get_error_message(), ['status' => 500]);
-        }
-
-        $code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-
-        error_log("✅ PCO response code: $code");
-        error_log("📥 Response body: $response_body");
-
-        if ($code >= 200 && $code < 300) {
-            delete_transient('elcis_open_checkins');
-            return ['success' => true, 'checked_out_at' => $now];
-        }
-
-        return new \WP_Error('api_error', 'Failed to check out', ['status' => $code]);
+    private function pco_creds() {
+        return [
+            'id'     => get_option('elcis_pco_app_id'),
+            'secret' => get_option('elcis_pco_secret'),
+        ];
     }
 }

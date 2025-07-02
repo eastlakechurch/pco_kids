@@ -48,21 +48,12 @@ class Dashboard_Page {
         $app_id = get_option('elcis_pco_app_id', '');
         $secret = get_option('elcis_pco_secret', '');
 
-        $access_token = get_option('elcis_pco_access_token');
-        $refresh_token = get_option('elcis_pco_refresh_token');
-        $token_expires = get_option('elcis_pco_token_expires');
-
         echo '<div class="wrap"><h1>Planning Center Settings</h1><form method="post">
             <table class="form-table">
-                <tr><th scope="row"><label for="elcis_pco_app_id">Client ID</label></th>
+                <tr><th scope="row"><label for="elcis_pco_app_id">App ID</label></th>
                     <td><input name="elcis_pco_app_id" type="text" value="' . esc_attr($app_id) . '" class="regular-text" /></td></tr>
-                <tr><th scope="row"><label for="elcis_pco_secret">Client Secret</label></th>
+                <tr><th scope="row"><label for="elcis_pco_secret">Secret</label></th>
                     <td><input name="elcis_pco_secret" type="password" value="' . esc_attr($secret) . '" class="regular-text" /></td></tr>
-                <tr><th scope="row"><label>Connection Status</label></th>
-                    <td>' . ($access_token ? '<span style="color:green;">Connected ✅</span>' : '<span style="color:red;">Not Connected ❌</span>') . '</td></tr>
-                <tr><th scope="row"><label>Authorize</label></th>
-                    <td><a href="' . esc_url(self::build_oauth_url()) . '" class="button button-primary">Connect to Planning Center</a></td></tr>
-                <tr><th colspan="2"><hr /></th></tr>
                 <tr><th scope="row"><label for="elcis_clearstream_key">Clearstream API Key</label></th>
                     <td><input name="elcis_clearstream_key" type="text" value="' . esc_attr(get_option('elcis_clearstream_key', '')) . '" class="regular-text" /></td></tr>
                 <tr><th scope="row"><label for="elcis_clearstream_account_id">Clearstream Subaccount ID</label></th>
@@ -85,12 +76,5 @@ class Dashboard_Page {
 
             return '<div id="elcis-table">Loading…</div><div id="elcis-replies"></div>';
         });
-    }
-
-    public static function build_oauth_url() {
-        $client_id = get_option('elcis_pco_app_id');
-        $redirect_uri = urlencode(admin_url('admin.php?page=pco_oauth_callback'));
-        $scope = 'people check_ins groups';
-        return "https://api.planningcenteronline.com/oauth/authorize?response_type=code&client_id={$client_id}&redirect_uri={$redirect_uri}&scope={$scope}";
     }
 }
