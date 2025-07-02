@@ -27,8 +27,12 @@ class Clearstream {
 
     public function send_sms($req) {
         $key  = get_option('elcis_clearstream_key');
+        $account_id = get_option('elcis_clearstream_account_id');
         $resp = wp_remote_post('https://api.getclearstream.com/v1/texts', [
-            'headers' => ['X-Api-Key' => $key],
+            'headers' => array_filter([
+                'X-Api-Key'     => $key,
+                'X-Account-Id'  => $account_id ?: null,
+            ]),
             'body'    => [
                 'to'         => $req['to'],
                 'from'       => '',              // default account number

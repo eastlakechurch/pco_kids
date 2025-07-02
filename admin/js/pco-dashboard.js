@@ -70,7 +70,7 @@
     `;
 
     let html = filterHtml + '<table class="wp-list-table widefat fixed striped">';
-    html += '<thead><tr><th>Name</th><th>Since</th><th>Room</th><th>Phone</th><th>Checked In By</th><th>Service Time</th></tr></thead><tbody>';
+    html += '<thead><tr><th>Name</th><th>Since</th><th>Room</th><th>Phone</th><th>Checked In By</th><th>Service Time</th><th>SMS</th><th>Checkout</th></tr></thead><tbody>';
 
     data.forEach(item => {
       html += `<tr data-event="${item.event_name}" data-room="${item.room}" data-time="${item.event_time}">
@@ -80,6 +80,8 @@
         <td>${item.phone}</td>
         <td>${item.checked_in_by || '—'}</td>
         <td>${item.event_time || '—'}</td>
+        <td><button class="elcis-sms button" data-phone="${item.phone}" data-kid="${item.name}" data-room="${item.room}">SMS</button></td>
+        <td><button class="elcis-checkout button" data-id="${item.id}">Check Out</button></td>
       </tr>`;
     });
 
@@ -121,13 +123,43 @@
   }
 
   $(document).on('click', '.elcis-sms', function () {
+    const kid  = $(this).data('kid');
+    const room = $(this).data('room');
     const to   = $(this).data('phone');
-    const body = `${$(this).data('kid')} needs you at ${$(this).data('room')}. Please come now.`;
-    $.post({
-      url: root + '/sms',
+    $.get({
+      url: root + '/sms-template',
       beforeSend: xhr => xhr.setRequestHeader('X-WP-Nonce', nonce),
-      data: { to, body },
-      success: () => alert('Text sent')
+      success: template => {
+        const body = template.replace('{kid}', kid).replace('{room}', room);
+        const customBody = prompt("Send this message?", body);
+        if (!customBody) return;
+
+        $.post({
+          url: root + '/sms',
+          beforeSend: xhr => xhr.setRequestHeader('X-WP-Nonce', nonce),
+          data: { to, body: customBody },
+          success: () => alert('Text sent')
+        });
+      }
+    });
+  });
+
+  $(document).on('click', '.elcis-checkout', function () {
+    const checkinId = $(this).data('id');
+    if (!confirm("Are you sure you want to check this person out?")) return;
+
+    $.post({
+      url: elcisCfg.root + '/checkout',
+      beforeSend: xhr => xhr.setRequestHeader('X-WP-Nonce', elcisCfg.nonce),
+      data: { checkin_id: checkinId },
+      success: () => {
+        alert('Checked out successfully.');
+        fetchCheckins(); // Refresh the table
+      },
+      error: (xhr) => {
+        alert('Failed to check out.');
+        console.error(xhr);
+      }
     });
   });
 
