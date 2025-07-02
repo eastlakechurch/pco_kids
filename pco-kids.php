@@ -7,22 +7,27 @@
  */
 
 defined('ABSPATH') || exit;
-require_once plugin_dir_path(__FILE__) . 'admin/pco-dashboard.php';
-require_once plugin_dir_path(__FILE__) . 'includes/pco-kids-api.php';
-
-/* Admin page */
-add_action('admin_menu', ['ELCIS\\Dashboard_Page', 'register']);
 
 /* Autoload simple classes */
 spl_autoload_register(function ($class) {
     if (strpos($class, 'ELCIS\\') === 0) {
         $relative_class = substr($class, strlen('ELCIS\\'));
-        $file = plugin_dir_path(__FILE__) . 'includes/' . strtolower(str_replace('\\', '-', $relative_class)) . '.php';
+        $file = plugin_dir_path(__FILE__) . 'includes/' . strtolower(str_replace(['\\', '_'], ['-', '-'], $relative_class)) . '.php';
+        error_log("🧩 Autoload looking for: $file");
+
         if (file_exists($file)) {
             require_once $file;
+            error_log("✅ Loaded class file: $file");
+        } else {
+            error_log("❌ File not found: $file");
         }
     }
 });
+
+require_once plugin_dir_path(__FILE__) . 'admin/pco-dashboard.php';
+
+/* Admin page */
+add_action('admin_menu', ['ELCIS\\Dashboard_Page', 'register']);
 
 /* Settings + capability */
 register_activation_hook(__FILE__, function () {
@@ -49,6 +54,6 @@ add_action('admin_init', function () {
 
 /* REST routes */
 add_action('rest_api_init', function () {
-    (new ELCIS\Checkins_API)->register_routes();
-    (new ELCIS\Clearstream)->register_routes();
+    (new \ELCIS\Checkins_API)->register_routes();
+    (new \ELCIS\Clearstream)->register_routes();
 });

@@ -10,17 +10,114 @@
     });
   }
   function drawTable(data) {
-    const rows = data.data.map(c => {
-      const kid  = c.attributes.person_name;
-      const room = c.attributes.location_name;
-      const time = new Date(c.attributes.created_at).toLocaleTimeString();
-      const phone= c.attributes.guardian_phone || '—';
-      const btn  = phone !== '—'
-        ? `<button class="elcis-sms" data-phone="${phone}" data-kid="${kid}" data-room="${room}">SMS</button>`
-        : '';
-      return `<tr><td>${kid}</td><td>${room}</td><td>${time}</td><td>${phone}</td><td>${btn}</td></tr>`;
-    }).join('');
-    $('#elcis-table').html('<table><thead><tr><th>Name</th><th>Room</th><th>Since</th><th>Phone</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>');
+    function formatRelativeTime(dateString) {
+      const created = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - created;
+      const diffMin = Math.round(diffMs / 60000);
+      const diffHr = Math.floor(diffMin / 60);
+      const mins = diffMin % 60;
+
+      let ago = '';
+      if (diffHr > 0) {
+        ago = `${diffHr} hr${diffHr > 1 ? 's' : ''}`;
+        if (mins > 0) ago += ` ${mins} min${mins > 1 ? 's' : ''}`;
+      } else {
+        ago = `${diffMin} min${diffMin !== 1 ? 's' : ''}`;
+      }
+
+      const day = created.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+      return `${day} (${ago} ago)`;
+    }
+
+    console.log('✅ Received check-in data:', data);
+    if (!Array.isArray(data) || data.length === 0) {
+      $('#elcis-table').html('<p>No current check-ins.</p>');
+      return;
+    }
+
+    // Collect unique events and rooms
+    const events = [...new Set(data.map(i => i.event_name))];
+    const rooms  = [...new Set(data.map(i => i.room))];
+    const times  = [...new Set(data.map(i => i.event_time))];
+
+    const savedEvent = localStorage.getItem('elcis-event-filter') || '';
+    const savedRoom  = localStorage.getItem('elcis-room-filter') || '';
+    const savedTime  = localStorage.getItem('elcis-time-filter') || '';
+
+    // Build filters
+    let filterHtml = `
+      <div style="margin-bottom: 1em;">
+        <label>Filter by Event: 
+          <select id="elcis-event-filter">
+            <option value="">All</option>
+            ${events.map(e => `<option value="${e}" ${e === savedEvent ? 'selected' : ''}>${e}</option>`).join('')}
+          </select>
+        </label>
+        <label style="margin-left: 1em;">Filter by Room: 
+          <select id="elcis-room-filter">
+            <option value="">All</option>
+            ${rooms.map(r => `<option value="${r}" ${r === savedRoom ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
+        </label>
+        <label style="margin-left: 1em;">Filter by Time: 
+          <select id="elcis-time-filter">
+            <option value="">All</option>
+            ${times.map(t => `<option value="${t}" ${t === savedTime ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+    `;
+
+    let html = filterHtml + '<table class="wp-list-table widefat fixed striped">';
+    html += '<thead><tr><th>Name</th><th>Since</th><th>Room</th><th>Phone</th><th>Checked In By</th><th>Service Time</th></tr></thead><tbody>';
+
+    data.forEach(item => {
+      html += `<tr data-event="${item.event_name}" data-room="${item.room}" data-time="${item.event_time}">
+        <td>${item.name}</td>
+        <td>${formatRelativeTime(item.created_at)}</td>
+        <td>${item.room}</td>
+        <td>${item.phone}</td>
+        <td>${item.checked_in_by || '—'}</td>
+        <td>${item.event_time || '—'}</td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    $('#elcis-table').html(html);
+
+    // Apply saved filters after refresh
+    applySavedFilters();
+
+    function applySavedFilters() {
+      const eventFilter = $('#elcis-event-filter').val();
+      const roomFilter  = $('#elcis-room-filter').val();
+      const timeFilter  = $('#elcis-time-filter').val();
+
+      $('#elcis-table tbody tr').each(function () {
+        const matchesEvent = !eventFilter || $(this).data('event') === eventFilter;
+        const matchesRoom  = !roomFilter  || $(this).data('room')  === roomFilter;
+        const matchesTime  = !timeFilter || $(this).data('time') === timeFilter;
+        $(this).toggle(matchesEvent && matchesRoom && matchesTime);
+      });
+    }
+
+    // Filtering logic
+    $('#elcis-event-filter, #elcis-room-filter, #elcis-time-filter').on('change', function () {
+      const eventFilter = $('#elcis-event-filter').val();
+      const roomFilter  = $('#elcis-room-filter').val();
+      const timeFilter  = $('#elcis-time-filter').val();
+      localStorage.setItem('elcis-event-filter', eventFilter);
+      localStorage.setItem('elcis-room-filter', roomFilter);
+      localStorage.setItem('elcis-time-filter', timeFilter);
+
+      $('#elcis-table tbody tr').each(function () {
+        const matchesEvent = !eventFilter || $(this).data('event') === eventFilter;
+        const matchesRoom  = !roomFilter  || $(this).data('room')  === roomFilter;
+        const matchesTime  = !timeFilter || $(this).data('time') === timeFilter;
+        $(this).toggle(matchesEvent && matchesRoom && matchesTime);
+      });
+    });
   }
 
   $(document).on('click', '.elcis-sms', function () {
